@@ -54,8 +54,13 @@ def update_product_cli(manager):
     stock_str = input(f"Enter new stock [{product.stock}]: ").strip()
     
     name = name if name else None
-    price = float(price_str) if price_str else None
-    stock = int(stock_str) if stock_str else None
+    
+    try:
+        price = float(price_str) if price_str else None
+        stock = int(stock_str) if stock_str else None
+    except ValueError:
+        print("Invalid input! Price must be a number and stock must be an integer.")
+        return
     
     manager.update_product(product_id, name, price, stock)
 
