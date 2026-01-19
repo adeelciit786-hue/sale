@@ -272,37 +272,30 @@ class Visualizer:
         try:
             fig = go.Figure()
             
-            # REQUIRED DAILY SALES - Red bars (ALL days with weekday-weighted projection)
-            required_days = list(range(1, month_days + 1))
-            required_vals = [daily_projected[i] if daily_projected[i] is not None else 0 for i in range(month_days)]
+            # Align projected and actual sales by day index
+            all_days = list(range(1, month_days + 1))
+            
+            # PROJECTED SALES - Red bars (ALL days)
+            projected_vals = [daily_projected[i] if daily_projected[i] is not None else 0 for i in range(month_days)]
             
             fig.add_trace(go.Bar(
-                x=required_days,
-                y=required_vals,
+                x=all_days,
+                y=projected_vals,
                 name='Projected Sales',
                 marker=dict(color='#A31D3C'),
-                text=[f"AED {v:,.0f}" if v > 0 else "" for v in required_vals],
+                text=[f"AED {v:,.0f}" if v > 0 else "" for v in projected_vals],
                 textposition='outside'
             ))
             
-            # ACTUAL SALES - Green bars (past days & today only)
-            actual_days = []
-            actual_vals = []
-            actual_texts = []
-            
-            for day_idx in range(month_days):
-                if day_idx < today:  # Past days and today
-                    actual_days.append(day_idx + 1)
-                    actual_val = daily_actual[day_idx] if daily_actual[day_idx] is not None else 0
-                    actual_vals.append(actual_val)
-                    actual_texts.append(f"AED {actual_val:,.0f}" if actual_val > 0 else "")
+            # ACTUAL SALES - Green bars (ALL days, missing days treated as 0)
+            actual_vals = [daily_actual[i] if daily_actual[i] is not None else 0 for i in range(month_days)]
             
             fig.add_trace(go.Bar(
-                x=actual_days,
+                x=all_days,
                 y=actual_vals,
                 name='Actual Sales',
                 marker=dict(color='#2E7D32'),
-                text=actual_texts,
+                text=[f"AED {v:,.0f}" if v > 0 else "" for v in actual_vals],
                 textposition='outside'
             ))
             
