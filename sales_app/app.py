@@ -36,10 +36,16 @@ check_dependencies()
 # Add current directory to path for imports
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
-from excel_loader import ExcelLoader
-from file_manager import FileManager
-from forecast import Forecaster
-from visualizer import Visualizer
+try:
+    from .excel_loader import ExcelLoader
+    from .file_manager import FileManager
+    from .forecast import Forecaster
+    from .visualizer import Visualizer
+except ImportError:
+    from excel_loader import ExcelLoader
+    from file_manager import FileManager
+    from forecast import Forecaster
+    from visualizer import Visualizer
 
 app = Flask(__name__)
 app.config['MAX_CONTENT_LENGTH'] = 16 * 1024 * 1024  # 16MB max file size
