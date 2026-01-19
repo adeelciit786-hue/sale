@@ -408,8 +408,11 @@ if __name__ == '__main__':
         print("=" * 60)
         print("Press Ctrl+C to stop the server\n")
         
-        # Run app
-        app.run(debug=True, host='0.0.0.0', port=5000, use_reloader=True)
+        # Run app (gunicorn will run this in production, this is for local development)
+        if os.environ.get('FLASK_ENV') == 'production':
+            app.run(debug=False, host='0.0.0.0', port=int(os.environ.get('PORT', 5000)))
+        else:
+            app.run(debug=True, host='0.0.0.0', port=5000, use_reloader=True)
         
     except OSError as e:
         if "Address already in use" in str(e):
