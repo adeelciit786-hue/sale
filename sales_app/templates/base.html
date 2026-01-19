@@ -1,0 +1,38 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}Sales Dashboard{% endblock %}</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+    {% block extra_css %}{% endblock %}
+</head>
+<body>
+    <div class="page-header">
+        <h1 class="page-title">Sales Forecasting Dashboard</h1>
+        <p class="page-tagline">Data-Driven Insights for Confident Decision-Making</p>
+    </div>
+
+    <header>
+        <nav>
+            <a href="{{ url_for('dashboard') }}" class="logo">📊 Sales Dashboard</a>
+            <ul class="nav-links">
+                <li><a href="{{ url_for('dashboard') }}" {% if request.endpoint == 'dashboard' %}class="active"{% endif %}>Dashboard</a></li>
+                <li><a href="{{ url_for('upload') }}" {% if request.endpoint == 'upload' %}class="active"{% endif %}>Upload Data</a></li>
+                <li><a href="{{ url_for('about') }}" {% if request.endpoint == 'about' %}class="active"{% endif %}>About</a></li>
+            </ul>
+        </nav>
+    </header>
+
+    <main>
+        {% block content %}{% endblock %}
+    </main>
+
+    <footer>
+        <p class="footer-primary">Powered by Data. Guided by Insight.</p>
+        <p class="footer-secondary">Built for Confident Decision-Making and Operational Excellence.</p>
+    </footer>
+
+    {% block extra_js %}{% endblock %}
+</body>
+</html>

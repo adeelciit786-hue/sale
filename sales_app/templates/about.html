@@ -1,0 +1,139 @@
+{% extends "base.html" %}
+
+{% block title %}About - Sales Dashboard{% endblock %}
+
+{% block content %}
+<div style="max-width: 900px;">
+    <div style="background: white; border-radius: 8px; padding: 2rem; box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);">
+        <h1 style="color: #2C3E50; margin-bottom: 1.5rem;">About Sales Forecasting Dashboard</h1>
+        
+        <section style="margin-bottom: 2rem;">
+            <h2 style="color: #2E7D32; margin-bottom: 1rem; font-size: 1.25rem;">📊 What is This Dashboard?</h2>
+            <p style="color: #555; line-height: 1.8; margin-bottom: 1rem;">
+                The Enterprise Sales Forecasting Dashboard is a professional management tool designed to provide real-time sales insights and accurate monthly projections. It combines historical data analysis with intelligent forecasting to help decision-makers track progress and plan strategically.
+            </p>
+        </section>
+
+        <section style="margin-bottom: 2rem;">
+            <h2 style="color: #2E7D32; margin-bottom: 1rem; font-size: 1.25rem;">🔍 Forecasting Methodology</h2>
+            <div style="background: #F1F8F4; border-left: 4px solid #2E7D32; padding: 1.5rem; border-radius: 4px; margin-bottom: 1rem;">
+                <h3 style="color: #2C3E50; margin-bottom: 0.5rem;">Weekday-Based Model</h3>
+                <p style="color: #555; margin-bottom: 0.5rem;">
+                    Our forecasting engine analyzes historical sales patterns by day of the week to identify consistent trends:
+                </p>
+                <ul style="color: #555; margin-left: 1.5rem; line-height: 1.8;">
+                    <li><strong>Historical Analysis:</strong> Calculates average sales for each weekday (MON–SUN) across all available historical months</li>
+                    <li><strong>Current Month:</strong> Uses actual sales for completed days, applies weekday averages for forecasted future days</li>
+                    <li><strong>Monthly Projection:</strong> Combines actual and forecasted daily sales to project total monthly revenue</li>
+                </ul>
+            </div>
+        </section>
+
+        <section style="margin-bottom: 2rem;">
+            <h2 style="color: #2E7D32; margin-bottom: 1rem; font-size: 1.25rem;">📈 Key Performance Indicators</h2>
+            <div style="background: #F5F5F5; padding: 1.5rem; border-radius: 4px;">
+                <div style="margin-bottom: 1rem;">
+                    <strong style="color: #2C3E50;">Today's Projected Sale (AED)</strong>
+                    <p style="color: #555; margin-top: 0.5rem;">Expected sales for today based on the weekday average from historical data.</p>
+                </div>
+                <div style="margin-bottom: 1rem;">
+                    <strong style="color: #2C3E50;">Monthly Projection (AED)</strong>
+                    <p style="color: #555; margin-top: 0.5rem;">Forecasted total sales for the complete month, combining actual and projected daily figures.</p>
+                </div>
+                <div style="margin-bottom: 1rem;">
+                    <strong style="color: #2C3E50;">Monthly Target (AED)</strong>
+                    <p style="color: #555; margin-top: 0.5rem;">The revenue target set for the current month (configurable in Upload Data section).</p>
+                </div>
+                <div>
+                    <strong style="color: #2C3E50;">Gap (Surplus / Shortfall)</strong>
+                    <p style="color: #555; margin-top: 0.5rem;">Difference between projected sales and target. Green indicates surplus, red indicates shortfall.</p>
+                </div>
+            </div>
+        </section>
+
+        <section style="margin-bottom: 2rem;">
+            <h2 style="color: #2E7D32; margin-bottom: 1rem; font-size: 1.25rem;">📊 Dashboard Visualizations</h2>
+            <div style="background: #F9F9F9; padding: 1.5rem; border-radius: 4px;">
+                <div style="margin-bottom: 1.5rem; padding-bottom: 1rem; border-bottom: 1px solid #E0E0E0;">
+                    <h4 style="color: #2C3E50; margin-bottom: 0.5rem;">1. Daily Sales Trend – Historical Analysis</h4>
+                    <p style="color: #555; margin: 0;">Line chart showing combined daily totals across all historical months, revealing consistent sales patterns.</p>
+                </div>
+                <div style="margin-bottom: 1.5rem; padding-bottom: 1rem; border-bottom: 1px solid #E0E0E0;">
+                    <h4 style="color: #2C3E50; margin-bottom: 0.5rem;">2. Average Sales by Weekday</h4>
+                    <p style="color: #555; margin: 0;">Bar chart displaying average sales for each day of the week, the foundation of our forecasting model.</p>
+                </div>
+                <div style="margin-bottom: 1.5rem; padding-bottom: 1rem; border-bottom: 1px solid #E0E0E0;">
+                    <h4 style="color: #2C3E50; margin-bottom: 0.5rem;">3. Sales Projection – Current Month</h4>
+                    <p style="color: #555; margin: 0;">Dual-line chart showing actual sales (solid) vs projected sales (dashed) with today's position marked.</p>
+                </div>
+                <div style="margin-bottom: 1.5rem; padding-bottom: 1rem; border-bottom: 1px solid #E0E0E0;">
+                    <h4 style="color: #2C3E50; margin-bottom: 0.5rem;">4. Projected Monthly Sales vs Target</h4>
+                    <p style="color: #555; margin: 0;">Area chart comparing cumulative actual and forecast against the cumulative target line.</p>
+                </div>
+                <div style="margin-bottom: 1.5rem; padding-bottom: 1rem; border-bottom: 1px solid #E0E0E0;">
+                    <h4 style="color: #2C3E50; margin-bottom: 0.5rem;">5. Daily Sales vs Required Target Pace</h4>
+                    <p style="color: #555; margin: 0;">Grouped bar chart comparing actual daily sales against the required daily sales to meet the target.</p>
+                </div>
+                <div>
+                    <h4 style="color: #2C3E50; margin-bottom: 0.5rem;">6. Monthly Sales Comparison</h4>
+                    <p style="color: #555; margin: 0;">Compare daily sales patterns between any two historical months to identify trends and anomalies.</p>
+                </div>
+            </div>
+        </section>
+
+        <section style="margin-bottom: 2rem;">
+            <h2 style="color: #2E7D32; margin-bottom: 1rem; font-size: 1.25rem;">💾 Data Management</h2>
+            <div style="background: #E8F5E9; border-left: 4px solid #2E7D32; padding: 1.5rem; border-radius: 4px;">
+                <p style="color: #555; margin-bottom: 0.5rem;">
+                    <strong>Historical Data:</strong> Upload multiple months of sales data. Each file is stored independently and used for pattern analysis. Upload a file with the same name to replace it.
+                </p>
+                <p style="color: #555; margin-bottom: 0.5rem;">
+                    <strong>Current Month:</strong> Upload the current month's sales data. Only one current month file is maintained; new uploads automatically replace the previous one.
+                </p>
+                <p style="color: #555;">
+                    <strong>Targets:</strong> Set monthly revenue targets that persist across sessions. Targets are matched to current month files by filename.
+                </p>
+            </div>
+        </section>
+
+        <section style="margin-bottom: 2rem;">
+            <h2 style="color: #2E7D32; margin-bottom: 1rem; font-size: 1.25rem;">⚙️ Technical Details</h2>
+            <ul style="color: #555; margin-left: 1.5rem; line-height: 1.8;">
+                <li><strong>Backend:</strong> Flask web framework with Python data processing</li>
+                <li><strong>Data Source:</strong> Excel files (.xlsx) with standardized format</li>
+                <li><strong>Data Processing:</strong> Pandas for analysis, automatic TOTAL row exclusion</li>
+                <li><strong>Visualizations:</strong> Plotly interactive charts</li>
+                <li><strong>Deployment:</strong> Runs identically on localhost and cloud platforms (Render)</li>
+                <li><strong>Data Quality:</strong> Automatic cleaning (dash-to-zero conversion, missing value handling)</li>
+            </ul>
+        </section>
+
+        <section>
+            <h2 style="color: #2E7D32; margin-bottom: 1rem; font-size: 1.25rem;">❓ Frequently Asked Questions</h2>
+            <div style="background: #F9F9F9; padding: 1.5rem; border-radius: 4px;">
+                <div style="margin-bottom: 1.5rem; padding-bottom: 1rem; border-bottom: 1px solid #E0E0E0;">
+                    <h4 style="color: #2C3E50; margin-bottom: 0.5rem;">How accurate are the forecasts?</h4>
+                    <p style="color: #555; margin: 0;">Accuracy improves with more historical data. Minimum 2 months required; 4+ months recommended for reliable patterns.</p>
+                </div>
+                <div style="margin-bottom: 1.5rem; padding-bottom: 1rem; border-bottom: 1px solid #E0E0E0;">
+                    <h4 style="color: #2C3E50; margin-bottom: 0.5rem;">What if data contains errors?</h4>
+                    <p style="color: #555; margin: 0;">The dashboard automatically cleans data: dashes become zeros, non-numeric values are handled safely, and the TOTAL row is always excluded.</p>
+                </div>
+                <div style="margin-bottom: 1.5rem; padding-bottom: 1rem; border-bottom: 1px solid #E0E0E0;">
+                    <h4 style="color: #2C3E50; margin-bottom: 0.5rem;">Can I delete files?</h4>
+                    <p style="color: #555; margin: 0;">Yes. Deleted files are removed from analysis. The app is stable and won't crash due to file operations.</p>
+                </div>
+                <div>
+                    <h4 style="color: #2C3E50; margin-bottom: 0.5rem;">Does the dashboard work offline?</h4>
+                    <p style="color: #555; margin: 0;">The dashboard runs locally but requires a web browser. All data is stored locally on your server.</p>
+                </div>
+            </div>
+        </section>
+
+        <div style="margin-top: 3rem; padding-top: 2rem; border-top: 1px solid #E0E0E0; text-align: center; color: #7F8C8D; font-size: 0.875rem;">
+            <p>Enterprise Sales Forecasting Dashboard | v1.0 | 2025</p>
+            <p>Professional-grade forecasting and management analytics</p>
+        </div>
+    </div>
+</div>
+{% endblock %}

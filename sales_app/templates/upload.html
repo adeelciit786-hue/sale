@@ -1,0 +1,257 @@
+{% extends "base.html" %}
+
+{% block title %}Upload Data - Sales Dashboard{% endblock %}
+
+{% block extra_css %}
+<style>
+    .admin-bar {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        background: linear-gradient(135deg, #1f6fb2 0%, #2b84c6 100%);
+        padding: 0.75rem 2rem;
+        border-radius: 6px;
+        margin-bottom: 2rem;
+        color: white;
+    }
+    
+    .admin-badge {
+        font-weight: 600;
+        font-size: 0.95rem;
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+    }
+    
+    .logout-link {
+        color: white;
+        text-decoration: none;
+        font-weight: 600;
+        padding: 0.5rem 1rem;
+        background: rgba(255, 255, 255, 0.2);
+        border-radius: 4px;
+        transition: all 0.3s;
+    }
+    
+    .logout-link:hover {
+        background: rgba(255, 255, 255, 0.3);
+        text-decoration: underline;
+    }
+    
+    .upload-section {
+        background: white;
+        border-radius: 8px;
+        padding: 2rem;
+        margin-bottom: 2rem;
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+    }
+    
+    .section-title {
+        font-size: 1.5rem;
+        font-weight: 600;
+        color: #2C3E50;
+        margin-bottom: 1.5rem;
+        padding-bottom: 1rem;
+        border-bottom: 2px solid #2E7D32;
+    }
+    
+    .file-input-wrapper {
+        position: relative;
+        display: inline-block;
+        width: 100%;
+    }
+    
+    .file-input-label {
+        display: block;
+        padding: 1.5rem;
+        border: 2px dashed #2E7D32;
+        border-radius: 4px;
+        text-align: center;
+        cursor: pointer;
+        transition: all 0.3s ease;
+        background: #F1F8F4;
+    }
+    
+    .file-input-label:hover {
+        background: #E8F5E9;
+        border-color: #1B5E20;
+    }
+    
+    .file-input {
+        display: none;
+    }
+    
+    .current-file {
+        background: #F5F5F5;
+        padding: 1rem;
+        border-radius: 4px;
+        margin-top: 1rem;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="admin-bar">
+    <span class="admin-badge">🔒 Admin Area</span>
+    <a href="{{ url_for('logout') }}" class="logout-link">Logout</a>
+</div>
+
+<div>
+    {% if message %}
+    <div class="alert alert-{{ message_type }}">
+        {{ message }}
+    </div>
+    {% endif %}
+
+    <!-- Historical Data Upload -->
+    <div class="upload-section">
+        <h2 class="section-title">📁 Historical Data Upload</h2>
+        <p style="margin-bottom: 1rem; color: #7F8C8D;">Upload multiple months of historical sales data. Files with the same name will be replaced.</p>
+        
+        <form method="POST" enctype="multipart/form-data">
+            <div class="form-group">
+                <label class="form-label">Select Excel File</label>
+                <div class="file-input-wrapper">
+                    <label class="file-input-label">
+                        <span>📂 Click to select or drag and drop your file here</span>
+                        <input type="file" name="historical_file" class="file-input" accept=".xlsx" required>
+                    </label>
+                </div>
+            </div>
+            <button type="submit" class="btn btn-primary">Upload Historical File</button>
+        </form>
+
+        {% if historical_files %}
+        <div style="margin-top: 2rem;">
+            <h3 style="margin-bottom: 1rem; color: #2C3E50;">Existing Historical Files ({{ historical_files|length }})</h3>
+            <div style="background: #F9F9F9; border-radius: 4px; padding: 1rem;">
+                {% for filename, filepath in historical_files %}
+                <div style="display: flex; justify-content: space-between; align-items: center; padding: 0.75rem; border-bottom: 1px solid #E0E0E0;">
+                    <span>{{ filename }}</span>
+                    <form method="POST" style="display: inline;" onsubmit="return confirm('Delete this file?');">
+                        <input type="hidden" name="delete_file" value="{{ filename }}">
+                        <button type="submit" class="btn btn-danger" style="padding: 0.5rem 1rem; font-size: 0.875rem;">Delete</button>
+                    </form>
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+        {% endif %}
+    </div>
+
+    <!-- Current Month Upload -->
+    <div class="upload-section">
+        <h2 class="section-title">📅 Current Month Upload</h2>
+        <p style="margin-bottom: 1rem; color: #7F8C8D;">Upload current month sales data. Only ONE current month file is allowed. New uploads will replace the existing one.</p>
+        
+        <form method="POST" enctype="multipart/form-data">
+            <div class="form-group">
+                <label class="form-label">Select Current Month File</label>
+                <div class="file-input-wrapper">
+                    <label class="file-input-label">
+                        <span>📂 Click to select or drag and drop your file here</span>
+                        <input type="file" name="current_month_file" class="file-input" accept=".xlsx" required>
+                    </label>
+                </div>
+            </div>
+            <button type="submit" class="btn btn-primary">Upload Current Month File</button>
+        </form>
+
+        {% if current_month_file %}
+        <div class="current-file">
+            <p style="margin-bottom: 0.5rem; color: #7F8C8D; font-size: 0.875rem;">Current File:</p>
+            <p style="margin-bottom: 1rem; font-weight: 600; color: #2C3E50;">{{ current_month_file }}</p>
+            <form method="POST" style="display: inline;" onsubmit="return confirm('Delete current month file?');">
+                <input type="hidden" name="delete_current" value="1">
+                <button type="submit" class="btn btn-danger">Delete Current File</button>
+            </form>
+        </div>
+        {% endif %}
+    </div>
+
+    <!-- Monthly Target -->
+    <div class="upload-section">
+        <h2 class="section-title">🎯 Monthly Target</h2>
+        <p style="margin-bottom: 1rem; color: #7F8C8D;">Set the sales target for the current month in AED.</p>
+        
+        {% if current_month_file %}
+        <form method="POST">
+            <div class="grid-2">
+                <div class="form-group">
+                    <label class="form-label">Current Month</label>
+                    <input type="text" value="{{ current_month_file.replace('.xlsx', '') }}" class="form-control" disabled>
+                    <input type="hidden" name="current_month" value="{{ current_month_file }}">
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Target Amount (AED)</label>
+                    <input type="number" name="target_value" class="form-control" value="{{ current_target }}" step="0.01" min="0" required>
+                </div>
+            </div>
+            <button type="submit" class="btn btn-primary">Save Target</button>
+        </form>
+        {% else %}
+        <div style="background: #FFFACD; border: 1px solid #FFE082; border-radius: 4px; padding: 1rem; color: #F57C00;">
+            <p>⚠️ Please upload a current month file first before setting a target.</p>
+        </div>
+        {% endif %}
+    </div>
+
+    <!-- Data Requirements -->
+    <div class="upload-section">
+        <h2 class="section-title">📋 Excel File Format Requirements</h2>
+        <div style="background: #F0F7FF; border-left: 4px solid #2E7D32; padding: 1rem; border-radius: 4px;">
+            <h4 style="margin-bottom: 0.5rem; color: #2C3E50;">Expected Format:</h4>
+            <ul style="margin-left: 1rem; color: #555;">
+                <li><strong>Row 1:</strong> Branch name in Column A, then weekday headers (MON, TUE, WED, THU, FRI, SAT, SUN)</li>
+                <li><strong>Row 2:</strong> "TOTAL" in Column A (this row will be ignored)</li>
+                <li><strong>Subsequent rows:</strong> Branch names in Column A, daily sales figures in columns B-H</li>
+                <li><strong>Data format:</strong> Use numbers for sales, "-" for zero sales, leave empty for zero</li>
+                <li><strong>Last row:</strong> Must be labeled "TOTAL" (will be automatically excluded from calculations)</li>
+            </ul>
+            <p style="margin-top: 1rem; font-size: 0.9rem; color: #666;">💡 Tip: The same data structure works for both historical and current month files.</p>
+        </div>
+    </div>
+</div>
+
+<script>
+// Drag and drop file input
+document.querySelectorAll('.file-input').forEach(input => {
+    const label = input.parentElement;
+    
+    ['dragenter', 'dragover', 'dragleave', 'drop'].forEach(eventName => {
+        label.addEventListener(eventName, preventDefaults, false);
+    });
+    
+    function preventDefaults(e) {
+        e.preventDefault();
+        e.stopPropagation();
+    }
+    
+    ['dragenter', 'dragover'].forEach(eventName => {
+        label.addEventListener(eventName, highlight, false);
+    });
+    
+    ['dragleave', 'drop'].forEach(eventName => {
+        label.addEventListener(eventName, unhighlight, false);
+    });
+    
+    function highlight(e) {
+        label.style.background = '#E8F5E9';
+        label.style.borderColor = '#1B5E20';
+    }
+    
+    function unhighlight(e) {
+        label.style.background = '#F1F8F4';
+        label.style.borderColor = '#2E7D32';
+    }
+    
+    label.addEventListener('drop', handleDrop, false);
+    
+    function handleDrop(e) {
+        const dt = e.dataTransfer;
+        const files = dt.files;
+        input.files = files;
+    }
+});
+</script>
+{% endblock %}

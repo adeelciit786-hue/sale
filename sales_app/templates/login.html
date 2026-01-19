@@ -1,0 +1,163 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="login-container">
+    <div class="login-card">
+        <div class="login-header">
+            <h1>Admin Login</h1>
+            <p>Sales Dashboard - Secure Access</p>
+        </div>
+        
+        <form method="POST" class="login-form">
+            <div class="form-group">
+                <label for="username">Username:</label>
+                <input type="text" id="username" name="username" required placeholder="Enter username">
+            </div>
+            
+            <div class="form-group">
+                <label for="password">Password:</label>
+                <input type="password" id="password" name="password" required placeholder="Enter password">
+            </div>
+            
+            {% if error %}
+            <div class="alert alert-error">
+                {{ error }}
+            </div>
+            {% endif %}
+            
+            <button type="submit" class="btn-login">Login</button>
+        </form>
+        
+        <div class="login-footer">
+            <p><a href="{{ url_for('dashboard') }}">Back to Dashboard</a></p>
+        </div>
+    </div>
+</div>
+
+<style>
+    .login-container {
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        min-height: calc(100vh - 200px);
+        padding: 2rem 1rem;
+    }
+    
+    .login-card {
+        background: white;
+        border-radius: 12px;
+        box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
+        width: 100%;
+        max-width: 400px;
+        padding: 3rem 2rem;
+        border-top: 4px solid #51A2FF;
+    }
+    
+    .login-header {
+        text-align: center;
+        margin-bottom: 2rem;
+    }
+    
+    .login-header h1 {
+        color: #1f6fb2;
+        margin: 0 0 0.5rem 0;
+        font-size: 1.8rem;
+    }
+    
+    .login-header p {
+        color: #666;
+        margin: 0;
+        font-size: 0.95rem;
+    }
+    
+    .login-form {
+        display: flex;
+        flex-direction: column;
+        gap: 1.5rem;
+    }
+    
+    .form-group {
+        display: flex;
+        flex-direction: column;
+        gap: 0.5rem;
+    }
+    
+    .form-group label {
+        color: #333;
+        font-weight: 600;
+        font-size: 0.95rem;
+    }
+    
+    .form-group input {
+        padding: 0.75rem 1rem;
+        border: 1px solid #ddd;
+        border-radius: 6px;
+        font-size: 1rem;
+        transition: border-color 0.3s;
+    }
+    
+    .form-group input:focus {
+        outline: none;
+        border-color: #51A2FF;
+        box-shadow: 0 0 0 3px rgba(81, 162, 255, 0.1);
+    }
+    
+    .btn-login {
+        padding: 0.85rem;
+        background: linear-gradient(135deg, #51A2FF, #2b84c6);
+        color: white;
+        border: none;
+        border-radius: 6px;
+        font-size: 1rem;
+        font-weight: 600;
+        cursor: pointer;
+        transition: all 0.3s;
+        margin-top: 1rem;
+    }
+    
+    .btn-login:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 4px 16px rgba(81, 162, 255, 0.3);
+    }
+    
+    .btn-login:active {
+        transform: translateY(0);
+    }
+    
+    .alert {
+        padding: 1rem;
+        border-radius: 6px;
+        font-size: 0.95rem;
+        margin: -0.5rem 0 0 0;
+    }
+    
+    .alert-error {
+        background-color: #ffe6e6;
+        color: #c0392b;
+        border: 1px solid #fb2c36;
+    }
+    
+    .login-footer {
+        text-align: center;
+        margin-top: 2rem;
+        padding-top: 2rem;
+        border-top: 1px solid #eee;
+    }
+    
+    .login-footer p {
+        margin: 0;
+        color: #666;
+    }
+    
+    .login-footer a {
+        color: #51A2FF;
+        text-decoration: none;
+        font-weight: 600;
+        transition: color 0.3s;
+    }
+    
+    .login-footer a:hover {
+        color: #2b84c6;
+    }
+</style>
+{% endblock %}
