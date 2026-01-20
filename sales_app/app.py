@@ -69,21 +69,10 @@ ADMIN_PASSWORD = "Champ@123"
 fm = FileManager("data")
 
 # ============================================
-# HELPERS (DB-BACKED)
+# HELPERS
 # ============================================
 def get_current_month_name():
     return datetime.now().strftime("%B %Y")
-
-
-def load_all_historical_data():
-    return load_historical_dataframes()
-
-
-def load_current_month_data():
-    filename, df = load_current_month_dataframe()
-    if df is None:
-        return None, None, None
-    return filename, df, None
 
 # ============================================
 # AUTH
@@ -101,7 +90,6 @@ def login():
         error = "Invalid credentials"
     return render_template("login.html", error=error)
 
-
 @app.route("/logout")
 def logout():
     session.pop("is_admin", None)
@@ -114,7 +102,6 @@ def logout():
 def index():
     return redirect(url_for("dashboard"))
 
-
 @app.route("/upload", methods=["GET", "POST"])
 def upload():
     if not session.get("is_admin"):
@@ -125,9 +112,9 @@ def upload():
 
     if request.method == "POST":
 
-        # =========================
+        # -------------------------
         # HISTORICAL UPLOAD
-        # =========================
+        # -------------------------
         if "historical_file" in request.files:
             file = request.files["historical_file"]
             if file and file.filename:
@@ -141,9 +128,7 @@ def upload():
                 else:
                     month_label = file.filename.replace(".xlsx", "")
                     year = int(month_label.split()[-1])
-                    month = datetime.strptime(
-                        month_label.split()[0], "%B"
-                    ).month
+                    month = datetime.strptime(month_label.split()[0], "%B").month
 
                     fm.clear_month_data(month_label, "historical")
 
@@ -155,9 +140,9 @@ def upload():
                     message = f"Historical data uploaded ({rows} rows)"
                     message_type = "success"
 
-        # =========================
+        # -------------------------
         # CURRENT MONTH UPLOAD
-        # =========================
+        # -------------------------
         elif "current_month_file" in request.files:
             file = request.files["current_month_file"]
             if file and file.filename:
@@ -171,9 +156,7 @@ def upload():
                 else:
                     month_label = file.filename.replace(".xlsx", "")
                     year = int(month_label.split()[-1])
-                    month = datetime.strptime(
-                        month_label.split()[0], "%B"
-                    ).month
+                    month = datetime.strptime(month_label.split()[0], "%B").month
 
                     fm.clear_month_data(month_label, "current")
 
@@ -185,9 +168,9 @@ def upload():
                     message = f"Current month data uploaded ({rows} rows)"
                     message_type = "success"
 
-        # =========================
+        # -------------------------
         # TARGET SAVE
-        # =========================
+        # -------------------------
         elif "current_month" in request.form and "target_value" in request.form:
             try:
                 target_value = float(request.form["target_value"])
@@ -207,26 +190,26 @@ def upload():
     )
 
 # ============================================
-# DASHBOARD (DB READY – UI BINDING NEXT)
+# DASHBOARD (DB-ONLY — NO FILE READS)
 # ============================================
 def get_dashboard_data():
-    """
-    Prepare dashboard data from DB-backed loaders.
-    Logic remains identical to earlier Excel version.
-    """
-    # Load data from DB
-  historical_dfs, weekday_maps = load_historical_dataframes()
-  current_filename, current_df = load_current_month_dataframe()
+    # LOAD FROM DATABASE (EVERY REQUEST)
+    historical_dfs, weekday_maps = load_historical_dataframes()
+    current_filename, current_df = load_current_month_dataframe()
 
-    # Calculate weekday averages
+    # WEEKDAY AVERAGES
     weekday_averages = Forecaster.calculate_weekday_averages(
         historical_dfs, weekday_maps
     )
 
-    # Target
-    target = fm.get_target_for_current_month(current_filename) if current_filename else 0
+    # TARGET
+    target = (
+        fm.get_target_for_current_month(current_filename)
+        if current_filename
+        else 0
+    )
 
-    # Forecast
+    # FORECAST
     if current_df is not None:
         forecast_data = Forecaster.forecast_current_month(
             current_df, weekday_averages
@@ -307,14 +290,6 @@ def get_dashboard_data():
 def dashboard():
     data = get_dashboard_data()
     return render_template("dashboard.html", data=data)
-@app.route("/dashboard")
-def dashboard():
-    data = get_dashboard_data()
-    return render_template("dashboard.html", data=data)
-@app.route("/dashboard")
-def dashboard():
-    data = get_dashboard_data()
-    return render_template("dashboard.html", data=data)
 
 @app.route("/about")
 def about():
@@ -326,7 +301,6 @@ def about():
 @app.errorhandler(404)
 def not_found(e):
     return render_template("error.html", error="Page not found"), 404
-
 
 @app.errorhandler(500)
 def server_error(e):
