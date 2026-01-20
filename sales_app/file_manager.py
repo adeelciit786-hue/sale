@@ -1,5 +1,5 @@
 from sqlalchemy import text
-from .db import engine
+from db import engine
 
 
 class FileManager:
