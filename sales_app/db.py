@@ -2,19 +2,19 @@ import os
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 
-# DATABASE_URL is injected by Render (env variable)
+# Render injects DATABASE_URL automatically
 DATABASE_URL = os.environ.get("DATABASE_URL")
 
 if not DATABASE_URL:
     raise RuntimeError("DATABASE_URL environment variable is not set")
 
-# Create SQLAlchemy engine
+# Create engine
 engine = create_engine(
     DATABASE_URL,
-    pool_pre_ping=True,   # prevents stale connections after sleep
+    pool_pre_ping=True,   # fixes Render sleep disconnects
     pool_size=5,
     max_overflow=10
 )
 
-# Session factory (used later if needed)
+# Optional session factory
 SessionLocal = sessionmaker(bind=engine)

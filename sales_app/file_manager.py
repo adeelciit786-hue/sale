@@ -1,21 +1,17 @@
 from sqlalchemy import text
-from db import engine
+from sales_app.db import engine
 
 
 class FileManager:
     """
-    DB-backed manager for uploads & targets.
-    Excel files are INPUT ONLY.
+    DB-backed manager.
+    Excel files are INPUT ONLY (uploads).
     """
 
     # ===============================
-    # UPLOAD LOGIC
+    # CLEAR MONTH DATA
     # ===============================
-
     def clear_month_data(self, month_label, data_type):
-        """
-        Delete existing sales data for a month before re-upload.
-        """
         with engine.begin() as conn:
             conn.execute(
                 text("""
@@ -35,10 +31,10 @@ class FileManager:
                 {"month": month_label, "type": data_type}
             )
 
+    # ===============================
+    # LOG UPLOAD
+    # ===============================
     def log_upload(self, month_label, data_type):
-        """
-        Track upload activity.
-        """
         with engine.begin() as conn:
             conn.execute(
                 text("""
@@ -49,13 +45,9 @@ class FileManager:
             )
 
     # ===============================
-    # TARGET LOGIC (DB-BASED)
+    # TARGETS
     # ===============================
-
     def save_target_for_month(self, month_label, target_value):
-        """
-        Insert or update monthly target.
-        """
         with engine.begin() as conn:
             conn.execute(
                 text("""
@@ -66,13 +58,9 @@ class FileManager:
                 """),
                 {"month": month_label, "target": float(target_value)}
             )
-
         return True, "Target saved successfully"
 
     def get_target_for_month(self, month_label):
-        """
-        Fetch target for given month.
-        """
         with engine.begin() as conn:
             result = conn.execute(
                 text("""
@@ -88,15 +76,8 @@ class FileManager:
     # ===============================
     # DASHBOARD HELPERS
     # ===============================
-
     def get_available_months(self, data_type=None):
-        """
-        Get list of uploaded months.
-        """
-        query = """
-        SELECT DISTINCT month_label
-        FROM sales_data
-        """
+        query = "SELECT DISTINCT month_label FROM sales_data"
         params = {}
 
         if data_type:
