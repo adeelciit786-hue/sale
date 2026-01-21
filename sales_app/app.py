@@ -1,10 +1,9 @@
 from flask import Flask, render_template, request, redirect, url_for, session
 from datetime import datetime
-import os
 
-# =========================
-# SAFE IMPORTS (NO RELATIVE CHAOS)
-# =========================
+# =========================================================
+# SAFE ABSOLUTE IMPORTS (RENDER + GUNICORN SAFE)
+# =========================================================
 from sales_app.excel_loader import ExcelLoader
 from sales_app.file_manager import FileManager
 from sales_app.forecast import Forecaster
@@ -16,29 +15,34 @@ from sales_app.db_loader import (
     load_current_month_dataframe,
 )
 
-# =========================
+# =========================================================
 # APP SETUP
-# =========================
+# =========================================================
 app = Flask(__name__)
 app.secret_key = "sales-dashboard-secret-key-2026"
 app.config["MAX_CONTENT_LENGTH"] = 16 * 1024 * 1024
 
-create_tables_if_not_exist()
+# Ensure DB schema exists
+try:
+    create_tables_if_not_exist()
+except Exception as e:
+    print("DB init skipped:", e)
+
 
 ADMIN_USERNAME = "Admin"
 ADMIN_PASSWORD = "Champ@123"
 
 fm = FileManager()
 
-# =========================
+# =========================================================
 # HELPERS
-# =========================
+# =========================================================
 def get_current_month_name():
     return datetime.now().strftime("%B %Y")
 
-# =========================
+# =========================================================
 # AUTH
-# =========================
+# =========================================================
 @app.route("/login", methods=["GET", "POST"])
 def login():
     error = None
@@ -52,14 +56,15 @@ def login():
         error = "Invalid credentials"
     return render_template("login.html", error=error)
 
+
 @app.route("/logout")
 def logout():
     session.pop("is_admin", None)
     return redirect(url_for("dashboard"))
 
-# =========================
+# =========================================================
 # UPLOAD
-# =========================
+# =========================================================
 @app.route("/upload", methods=["GET", "POST"])
 def upload():
     if not session.get("is_admin"):
@@ -87,7 +92,9 @@ def upload():
                     month = datetime.strptime(month_label.split()[0], "%B").month
 
                     fm.clear_month_data(month_label, "historical")
-                    rows = insert_sales_dataframe(df, year, month, month_label, "historical")
+                    rows = insert_sales_dataframe(
+                        df, year, month, month_label, "historical"
+                    )
                     fm.log_upload(month_label, "historical")
 
                     message = f"Historical data uploaded ({rows} rows)"
@@ -110,7 +117,9 @@ def upload():
                     month = datetime.strptime(month_label.split()[0], "%B").month
 
                     fm.clear_month_data(month_label, "current")
-                    rows = insert_sales_dataframe(df, year, month, month_label, "current")
+                    rows = insert_sales_dataframe(
+                        df, year, month, month_label, "current"
+                    )
                     fm.log_upload(month_label, "current")
 
                     message = f"Current month uploaded ({rows} rows)"
@@ -131,45 +140,63 @@ def upload():
 
     return render_template("upload.html", message=message, message_type=message_type)
 
-# =========================
-# DASHBOARD (DB-ONLY, LIVE)
-# =========================
+# =========================================================
+# DASHBOARD (DB-ONLY, ALWAYS LIVE)
+# =========================================================
 def get_dashboard_data():
+    # 1️⃣ Load fresh data every request
     historical_dfs, weekday_maps = load_historical_dataframes()
     current_filename, current_df = load_current_month_dataframe()
 
+    # 2️⃣ Weekday averages
     weekday_averages = Forecaster.calculate_weekday_averages(
         historical_dfs, weekday_maps
     )
 
+    # 3️⃣ Target
     target = fm.get_target_for_month(current_filename) if current_filename else 0
 
+    # 4️⃣ Forecast (SAFE DEFAULT)
     if current_df is not None:
         forecast_data = Forecaster.forecast_current_month(
             current_df, weekday_averages
         )
     else:
         forecast_data = {
+            "actual_total": 0,
+            "projected_total": 0,
             "daily_actual": [],
             "daily_forecast": [],
-            "today": 1,
-            "month_days": 31,
+            "today": 0,
+            "month_days": 0,
+            "today_projected_sale": 0,
         }
 
+    # 5️⃣ KPIs
     today_date = datetime.now().strftime("%d %b")
     total_sales = sum(forecast_data["daily_actual"])
 
-    graphs = {
-        "historical_trend": Visualizer.create_historical_daily_trend(historical_dfs),
-        "weekday_avg": Visualizer.create_weekday_average_chart(weekday_averages),
-        "monthly_forecast": Visualizer.create_monthly_forecast(
-            forecast_data["daily_actual"],
-            forecast_data["daily_forecast"],
-            None,
-            forecast_data["today"],
-            get_current_month_name(),
-        ),
-    }
+    # 6️⃣ Graphs (SAFE)
+    graphs = {}
+    try:
+        graphs["historical_trend"] = Visualizer.create_historical_daily_trend(
+            historical_dfs
+        )
+
+        graphs["weekday_avg"] = Visualizer.create_weekday_average_chart(
+            weekday_averages
+        )
+
+        if forecast_data["month_days"] > 0:
+            graphs["monthly_forecast"] = Visualizer.create_monthly_forecast(
+                forecast_data["daily_actual"],
+                forecast_data["daily_forecast"],
+                None,
+                forecast_data["today"],
+                get_current_month_name(),
+            )
+    except Exception as e:
+        print("Error creating forecast chart:", e)
 
     return {
         "kpis": {
@@ -181,20 +208,34 @@ def get_dashboard_data():
         "current_month": current_filename,
     }
 
-@app.route("/dashboard")
-def dashboard():
-    return render_template("dashboard.html", data=get_dashboard_data())
-
+# =========================================================
+# ROUTES
+# =========================================================
 @app.route("/")
 def index():
     return redirect(url_for("dashboard"))
+
+@app.route("/dashboard")
+def dashboard():
+    return render_template("dashboard.html", data=get_dashboard_data())
 
 @app.route("/about")
 def about():
     return render_template("about.html")
 
-# =========================
-# RUN (LOCAL ONLY)
-# =========================
+# =========================================================
+# ERROR HANDLERS
+# =========================================================
+@app.errorhandler(404)
+def not_found(e):
+    return render_template("error.html", error="Page not found"), 404
+
+@app.errorhandler(500)
+def server_error(e):
+    return render_template("error.html", error="Server error"), 500
+
+# =========================================================
+# LOCAL RUN ONLY (GUNICORN IGNORES THIS)
+# =========================================================
 if __name__ == "__main__":
-    app.run(debug=True, port=5000)
+    app.run(debug=True, host="0.0.0.0", port=5000)
