@@ -4,279 +4,68 @@
 
 {% block extra_css %}
 <script src="https://cdn.plot.ly/plotly-latest.min.js"></script>
-<style>
-    .comparison-section {
-        background: white;
-        border-radius: 8px;
-        padding: 1.5rem;
-        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
-        margin-bottom: 2rem;
-    }
-    
-    .comparison-controls {
-        display: grid;
-        grid-template-columns: 1fr 1fr 1fr;
-        gap: 1rem;
-        margin-bottom: 1.5rem;
-    }
-    
-    .comparison-stats {
-        display: grid;
-        grid-template-columns: repeat(3, 1fr);
-        gap: 1rem;
-        margin-top: 1rem;
-    }
-    
-    .stat-box {
-        background: #F5F5F5;
-        padding: 1rem;
-        border-radius: 4px;
-        text-align: center;
-    }
-    
-    .stat-label {
-        font-size: 0.875rem;
-        color: #7F8C8D;
-        margin-bottom: 0.5rem;
-    }
-    
-    .stat-value {
-        font-size: 1.5rem;
-        font-weight: 700;
-        color: #2C3E50;
-    }
-</style>
 {% endblock %}
 
 {% block content %}
-<div>
-    {% if data.error %}
-    <div class="alert alert-error">
-        <strong>Error:</strong> {{ data.error }}
-    </div>
-    {% endif %}
 
-    <!-- KPI Cards -->
+<div class="container">
+
+    <!-- KPI CARDS -->
     <div class="kpi-grid">
         <div class="kpi-card">
             <div class="kpi-label">Today's Date</div>
             <div class="kpi-value">{{ data.kpis.today_date }}</div>
         </div>
-        
+
         <div class="kpi-card">
-            <div class="kpi-label">Total Sales Till Today</div>
-            <div class="kpi-value">{{ data.kpis.total_sales_till_today }}</div>
+            <div class="kpi-label">Total Sales</div>
+            <div class="kpi-value">
+                {{ data.kpis.total_sales | default("AED 0") }}
+            </div>
         </div>
-        
-        <div class="kpi-card">
-            <div class="kpi-label">Today's Projected Sale</div>
-            <div class="kpi-value">{{ data.kpis.today_projected_sale }}</div>
-        </div>
-        
-        <div class="kpi-card">
-            <div class="kpi-label">Monthly Projection</div>
-            <div class="kpi-value">{{ data.kpis.monthly_projection }}</div>
-        </div>
-        
+
         <div class="kpi-card">
             <div class="kpi-label">Monthly Target</div>
-            <div class="kpi-value">{{ data.kpis.monthly_target }}</div>
-        </div>
-        
-        <div class="kpi-card {% if data.kpis.shortfall_type == 'shortfall' %}shortfall{% endif %}">
-            <div class="kpi-label">{% if data.kpis.shortfall_type == 'surplus' %}Surplus{% else %}Shortfall{% endif %}</div>
-            <div class="kpi-value {% if data.kpis.shortfall_type == 'surplus' %}surplus{% else %}shortfall{% endif %}">{{ data.kpis.shortfall }}</div>
-        </div>
-    </div>
-
-    <!-- Graph 1: Historical Daily Sales Trend -->
-    <div class="graph-container">
-        <h3 class="graph-title">Daily Sales Trend – Historical Analysis</h3>
-        <div class="graph-content" id="graph-historical-trend"></div>
-        <input type="range" class="graph-scroll" id="scroll-graph-1" min="1" max="31" value="1" style="display: none;">
-    </div>
-
-    <!-- Graph 2: Average Sales by Weekday -->
-    <div class="graph-container">
-        <h3 class="graph-title">Average Sales by Weekday (Historical Analysis)</h3>
-        <div class="graph-content" id="graph-weekday-avg"></div>
-    </div>
-
-    <!-- Graph 3: Monthly Forecast -->
-    <div class="graph-container">
-        <h3 class="graph-title">Sales Projection – Current Month</h3>
-        <div class="graph-content" id="graph-monthly-forecast"></div>
-        <input type="range" class="graph-scroll" id="scroll-graph-3" min="1" max="31" value="1" style="display: none;">
-    </div>
-
-    <!-- Graph 4: Cumulative vs Target -->
-    <div class="graph-container">
-        <h3 class="graph-title">Projected Monthly Sales vs Target</h3>
-        <div class="graph-content" id="graph-cumulative-vs-target"></div>
-        <input type="range" class="graph-scroll" id="scroll-graph-4" min="1" max="31" value="1" style="display: none;">
-    </div>
-
-    <!-- Graph 5: Actual vs Required -->
-    <div class="graph-container">
-        <h3 class="graph-title">Projected Sales vs Actual Sales (Daily)</h3>
-        <div class="graph-content" id="graph-actual-vs-required"></div>
-        <input type="range" class="graph-scroll" id="scroll-graph-5" min="1" max="31" value="1" style="display: none;">
-    </div>
-
-    <!-- Graph 6: Monthly Comparison -->
-    <div class="comparison-section">
-        <h3 class="graph-title">Monthly Sales Comparison</h3>
-        <input type="range" class="graph-scroll" id="scroll-graph-6" min="1" max="31" value="1" style="display: none;">
-        
-        <div class="comparison-controls">
-            <div class="form-group">
-                <label class="form-label">Month to compare with</label>
-                <select id="month1-select" class="form-control" onchange="updateComparison()">
-                    {% for month in data.month_options %}
-                    <option value="{{ month }}">{{ month }}</option>
-                    {% endfor %}
-                </select>
-            </div>
-            
-            <div class="form-group">
-                <label class="form-label">Month to be compare</label>
-                <select id="month2-select" class="form-control" onchange="updateComparison()">
-                    {% for month in data.month_options %}
-                    <option value="{{ month }}" {% if loop.index == 2 %}selected{% endif %}>{{ month }}</option>
-                    {% endfor %}
-                </select>
-            </div>
-        </div>
-        
-        <div class="graph-content" id="graph-monthly-comparison"></div>
-        
-        <div class="comparison-stats" id="comparison-stats" style="display: none;">
-            <div class="stat-box">
-                <div class="stat-label" id="stat-label-month1">Month A Total</div>
-                <div class="stat-value" id="stat-month1">-</div>
-            </div>
-            <div class="stat-box">
-                <div class="stat-label" id="stat-label-month2">Month B Total</div>
-                <div class="stat-value" id="stat-month2">-</div>
-            </div>
-            <div class="stat-box">
-                <div class="stat-label">Difference</div>
-                <div class="stat-value" id="stat-diff">-</div>
-            </div>
-            <div class="stat-box">
-                <div class="stat-label">% Change</div>
-                <div class="stat-value" id="stat-pct">-</div>
+            <div class="kpi-value">
+                {{ data.kpis.monthly_target | default("AED 0") }}
             </div>
         </div>
     </div>
+
+    <!-- HISTORICAL TREND -->
+    <div class="graph-container">
+        <h3 class="graph-title">Daily Sales Trend (Historical)</h3>
+        <div id="graph-historical-trend"></div>
+    </div>
+
+    <!-- WEEKDAY AVERAGE -->
+    <div class="graph-container">
+        <h3 class="graph-title">Average Sales by Weekday</h3>
+        <div id="graph-weekday-avg"></div>
+    </div>
+
+    <!-- MONTHLY FORECAST -->
+    <div class="graph-container">
+        <h3 class="graph-title">Current Month Forecast</h3>
+        <div id="graph-monthly-forecast"></div>
+    </div>
+
 </div>
 
 <script>
-// Render graphs
-function renderGraphs() {
-    const graphs = {{ data.graphs | tojson }};
-    
-    if (graphs.historical_trend && graphs.historical_trend !== '{}') {
-        Plotly.newPlot('graph-historical-trend', JSON.parse(graphs.historical_trend).data, JSON.parse(graphs.historical_trend).layout);
-    }
-    
-    if (graphs.weekday_avg && graphs.weekday_avg !== '{}') {
-        Plotly.newPlot('graph-weekday-avg', JSON.parse(graphs.weekday_avg).data, JSON.parse(graphs.weekday_avg).layout);
-    }
-    
-    if (graphs.monthly_forecast && graphs.monthly_forecast !== '{}') {
-        Plotly.newPlot('graph-monthly-forecast', JSON.parse(graphs.monthly_forecast).data, JSON.parse(graphs.monthly_forecast).layout);
-    }
-    
-    if (graphs.cumulative_vs_target && graphs.cumulative_vs_target !== '{}') {
-        Plotly.newPlot('graph-cumulative-vs-target', JSON.parse(graphs.cumulative_vs_target).data, JSON.parse(graphs.cumulative_vs_target).layout);
-    }
-    
-    if (graphs.actual_vs_required && graphs.actual_vs_required !== '{}') {
-        Plotly.newPlot('graph-actual-vs-required', JSON.parse(graphs.actual_vs_required).data, JSON.parse(graphs.actual_vs_required).layout);
-    }
-    
-    if (graphs.monthly_comparison && graphs.monthly_comparison !== '{}') {
-        Plotly.newPlot('graph-monthly-comparison', JSON.parse(graphs.monthly_comparison).data, JSON.parse(graphs.monthly_comparison).layout);
-    }
+const graphs = {{ data.graphs | tojson }};
+
+function safePlot(id, chart) {
+    if (!chart || chart === '{}') return;
+    const parsed = JSON.parse(chart);
+    Plotly.newPlot(id, parsed.data, parsed.layout);
 }
 
-function updateComparison() {
-    const month1 = document.getElementById('month1-select').value;
-    const month2 = document.getElementById('month2-select').value;
-    
-    fetch('{{ url_for("api_comparison") }}', {
-        method: 'POST',
-        headers: {
-            'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({ month1: month1, month2: month2 })
-    })
-    .then(response => response.json())
-    .then(data => {
-        if (data.success) {
-            const chart = JSON.parse(data.chart);
-            Plotly.newPlot('graph-monthly-comparison', chart.data, chart.layout);
-            
-            if (data.stats && data.stats.month1) {
-                document.getElementById('comparison-stats').style.display = 'grid';
-                
-                // Update labels with month names
-                document.getElementById('stat-label-month1').textContent = month1 + ' Total';
-                document.getElementById('stat-label-month2').textContent = month2 + ' Total';
-                
-                // Month A Total (green)
-                const stat1 = document.getElementById('stat-month1');
-                stat1.textContent = data.stats.month1_formatted;
-                stat1.style.color = '#2E7D32';
-                
-                // Month B Total (green)
-                const stat2 = document.getElementById('stat-month2');
-                stat2.textContent = data.stats.month2_formatted;
-                stat2.style.color = '#2E7D32';
-                
-                // Difference (green if positive, red if negative)
-                const statDiff = document.getElementById('stat-diff');
-                statDiff.textContent = data.stats.diff_formatted;
-                statDiff.style.color = data.stats.diff_sign === 'positive' ? '#2E7D32' : '#A31D3C';
-                
-                // Percentage Change (green if positive, red if negative)
-                const statPct = document.getElementById('stat-pct');
-                statPct.textContent = data.stats.pct_change_formatted;
-                statPct.style.color = data.stats.pct_sign === 'positive' ? '#2E7D32' : '#A31D3C';
-            }
-        }
-    })
-    .catch(error => console.error('Error:', error));
-}
-
-// Graph scroll functionality - enable horizontal panning with drag
-function setupGraphScrolling() {
-    const graphIds = [
-        { scrollId: 'scroll-graph-1', chartId: 'graph-historical-trend' },
-        { scrollId: 'scroll-graph-3', chartId: 'graph-monthly-forecast' },
-        { scrollId: 'scroll-graph-4', chartId: 'graph-cumulative-vs-target' },
-        { scrollId: 'scroll-graph-5', chartId: 'graph-actual-vs-required' },
-        { scrollId: 'scroll-graph-6', chartId: 'graph-monthly-comparison' }
-    ];
-    
-    graphIds.forEach(({ scrollId, chartId }) => {
-        const scrollElement = document.getElementById(scrollId);
-        if (scrollElement) {
-            scrollElement.addEventListener('input', function() {
-                const startDay = parseInt(this.value);
-                const endDay = Math.min(startDay + 14, 31);
-                Plotly.relayout(chartId, { 'xaxis.range': [startDay, endDay] });
-            });
-        }
-    });
-}
-
-// Initialize on page load
-window.addEventListener('DOMContentLoaded', function() {
-    renderGraphs();
-    updateComparison();
-    setupGraphScrolling();
+document.addEventListener("DOMContentLoaded", function () {
+    safePlot("graph-historical-trend", graphs.historical_trend);
+    safePlot("graph-weekday-avg", graphs.weekday_avg);
+    safePlot("graph-monthly-forecast", graphs.monthly_forecast);
 });
 </script>
+
 {% endblock %}
