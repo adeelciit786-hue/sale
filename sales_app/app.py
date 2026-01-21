@@ -239,10 +239,6 @@ def about():
 def not_found(e):
     return render_template("error.html", error="Page not found"), 404
 
-@app.errorhandler(500)
-def server_error(e):
-    return render_template("error.html", error="Server error"), 500
-
 # =========================================================
 # LOCAL RUN ONLY (GUNICORN IGNORES THIS)
 # =========================================================
