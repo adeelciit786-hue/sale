@@ -157,7 +157,14 @@ def upload():
                 message = "Target must be a number"
                 message_type = "error"
 
-    return render_template("upload.html", message=message, message_type=message_type)
+    return render_template(
+    "upload.html",
+    message=message,
+    message_type=message_type,
+    data={
+        "current_month": load_current_month_dataframe()[0]
+    }
+)
 
 # =========================================================
 # DASHBOARD (DB-ONLY, ALWAYS LIVE, SAFE)
