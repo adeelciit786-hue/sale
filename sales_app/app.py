@@ -22,7 +22,7 @@ app = Flask(__name__)
 app.secret_key = "sales-dashboard-secret-key-2026"
 app.config["MAX_CONTENT_LENGTH"] = 16 * 1024 * 1024
 
-# Ensure DB schema exists (safe for Render cold starts)
+# Ensure DB schema exists (safe on Render cold starts)
 try:
     create_tables_if_not_exist()
 except Exception as e:
@@ -32,27 +32,6 @@ ADMIN_USERNAME = "Admin"
 ADMIN_PASSWORD = "Champ@123"
 
 fm = FileManager()
-
-# =========================================================
-# UNIVERSAL ROUTE ALIASES (PREVENT url_for ERRORS)
-# =========================================================
-def _redirect_dashboard():
-    return redirect(url_for("dashboard"))
-
-def _redirect_upload():
-    return redirect(url_for("upload"))
-
-# Home aliases
-app.add_url_rule("/", endpoint="home", view_func=_redirect_dashboard)
-app.add_url_rule("/index", endpoint="index", view_func=_redirect_dashboard)
-app.add_url_rule("/dashboard-view", endpoint="dashboard_view", view_func=_redirect_dashboard)
-
-# Upload aliases
-app.add_url_rule("/upload-data", endpoint="upload_data", view_func=_redirect_upload)
-app.add_url_rule("/save-target", endpoint="save_target", view_func=_redirect_upload)
-
-# Logout alias
-app.add_url_rule("/logout-user", endpoint="logout_user", view_func=lambda: logout())
 
 # =========================================================
 # HELPERS
@@ -76,13 +55,14 @@ def login():
         error = "Invalid credentials"
     return render_template("login.html", error=error)
 
+
 @app.route("/logout")
 def logout():
     session.pop("is_admin", None)
     return redirect(url_for("dashboard"))
 
 # =========================================================
-# UPLOAD
+# UPLOAD (CRASH-PROOF)
 # =========================================================
 @app.route("/upload", methods=["GET", "POST"])
 def upload():
@@ -93,81 +73,100 @@ def upload():
     message_type = None
 
     if request.method == "POST":
+        try:
+            # =========================
+            # HISTORICAL UPLOAD
+            # =========================
+            if "historical_file" in request.files:
+                file = request.files["historical_file"]
 
-        # -------- HISTORICAL --------
-        if "historical_file" in request.files:
-            file = request.files["historical_file"]
-            if file and file.filename:
+                if not file or not file.filename:
+                    raise ValueError("No historical file selected")
+
                 temp_path = f"/tmp/{file.filename}"
                 file.save(temp_path)
 
                 df, error, _ = ExcelLoader.load_file(temp_path)
                 if error:
-                    message = error
-                    message_type = "error"
-                else:
-                    month_label = file.filename.replace(".xlsx", "")
-                    year = int(month_label.split()[-1])
-                    month = datetime.strptime(month_label.split()[0], "%B").month
+                    raise ValueError(error)
 
-                    fm.clear_month_data(month_label, "historical")
-                    rows = insert_sales_dataframe(
-                        df, year, month, month_label, "historical"
-                    )
-                    fm.log_upload(month_label, "historical")
+                month_label = file.filename.replace(".xlsx", "")
+                parts = month_label.split()
+                if len(parts) < 2:
+                    raise ValueError("Filename must be like 'January 2026.xlsx'")
 
-                    message = f"Historical data uploaded ({rows} rows)"
-                    message_type = "success"
+                year = int(parts[-1])
+                month = datetime.strptime(parts[0], "%B").month
 
-        # -------- CURRENT MONTH --------
-        elif "current_month_file" in request.files:
-            file = request.files["current_month_file"]
-            if file and file.filename:
+                fm.clear_month_data(month_label, "historical")
+                rows = insert_sales_dataframe(
+                    df, year, month, month_label, "historical"
+                )
+                fm.log_upload(month_label, "historical")
+
+                message = f"Historical data uploaded successfully ({rows} rows)"
+                message_type = "success"
+
+            # =========================
+            # CURRENT MONTH UPLOAD
+            # =========================
+            elif "current_month_file" in request.files:
+                file = request.files["current_month_file"]
+
+                if not file or not file.filename:
+                    raise ValueError("No current month file selected")
+
                 temp_path = f"/tmp/{file.filename}"
                 file.save(temp_path)
 
                 df, error, _ = ExcelLoader.load_file(temp_path)
                 if error:
-                    message = error
-                    message_type = "error"
-                else:
-                    month_label = file.filename.replace(".xlsx", "")
-                    year = int(month_label.split()[-1])
-                    month = datetime.strptime(month_label.split()[0], "%B").month
+                    raise ValueError(error)
 
-                    fm.clear_month_data(month_label, "current")
-                    rows = insert_sales_dataframe(
-                        df, year, month, month_label, "current"
-                    )
-                    fm.log_upload(month_label, "current")
+                month_label = file.filename.replace(".xlsx", "")
+                parts = month_label.split()
+                if len(parts) < 2:
+                    raise ValueError("Filename must be like 'January 2026.xlsx'")
 
-                    message = f"Current month uploaded ({rows} rows)"
-                    message_type = "success"
+                year = int(parts[-1])
+                month = datetime.strptime(parts[0], "%B").month
 
-        # -------- TARGET --------
-        elif "current_month" in request.form and "target_value" in request.form:
-            try:
+                fm.clear_month_data(month_label, "current")
+                rows = insert_sales_dataframe(
+                    df, year, month, month_label, "current"
+                )
+                fm.log_upload(month_label, "current")
+
+                message = f"Current month uploaded successfully ({rows} rows)"
+                message_type = "success"
+
+            # =========================
+            # TARGET SAVE
+            # =========================
+            elif "current_month" in request.form and "target_value" in request.form:
                 target_value = float(request.form["target_value"])
                 success, msg = fm.save_target_for_month(
                     request.form["current_month"], target_value
                 )
                 message = msg
                 message_type = "success" if success else "error"
-            except ValueError:
-                message = "Target must be a number"
-                message_type = "error"
+
+        except Exception as e:
+            print("UPLOAD ERROR:", str(e))
+            message = f"Upload failed: {str(e)}"
+            message_type = "error"
 
     return render_template(
-    "upload.html",
-    message=message,
-    message_type=message_type,
-    data={
-        "current_month": load_current_month_dataframe()[0]
-    }
-)
+        "upload.html",
+        message=message,
+        message_type=message_type,
+        data={
+            "current_month": load_current_month_dataframe()[0]
+        },
+    )
 
 # =========================================================
-# DASHBOARD (DB-ONLY, ALWAYS LIVE, SAFE)
+# DASHBOARD (DB-ONLY, SAFE)
 # =========================================================
 def get_dashboard_data():
     historical_dfs, weekday_maps = load_historical_dataframes()
@@ -179,7 +178,6 @@ def get_dashboard_data():
 
     target = fm.get_target_for_month(current_filename) if current_filename else 0
 
-    # SAFE FORECAST DEFAULT
     if current_df is not None:
         forecast_data = Forecaster.forecast_current_month(
             current_df, weekday_averages
@@ -206,7 +204,6 @@ def get_dashboard_data():
         graphs["weekday_avg"] = Visualizer.create_weekday_average_chart(
             weekday_averages
         )
-
         if forecast_data["month_days"] > 0:
             graphs["monthly_forecast"] = Visualizer.create_monthly_forecast(
                 forecast_data["daily_actual"],
@@ -231,6 +228,10 @@ def get_dashboard_data():
 # =========================================================
 # ROUTES
 # =========================================================
+@app.route("/")
+def index():
+    return redirect(url_for("dashboard"))
+
 @app.route("/dashboard")
 def dashboard():
     return render_template("dashboard.html", data=get_dashboard_data())
@@ -247,7 +248,7 @@ def not_found(e):
     return render_template("error.html", error="Page not found"), 404
 
 # =========================================================
-# LOCAL RUN ONLY (GUNICORN IGNORES THIS)
+# LOCAL RUN (GUNICORN IGNORES)
 # =========================================================
 if __name__ == "__main__":
     app.run(debug=True, host="0.0.0.0", port=5000)
