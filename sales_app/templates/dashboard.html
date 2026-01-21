@@ -8,64 +8,57 @@
 
 {% block content %}
 
-<div class="container">
-
-    <!-- KPI CARDS -->
-    <div class="kpi-grid">
-        <div class="kpi-card">
-            <div class="kpi-label">Today's Date</div>
-            <div class="kpi-value">{{ data.kpis.today_date }}</div>
-        </div>
-
-        <div class="kpi-card">
-            <div class="kpi-label">Total Sales</div>
-            <div class="kpi-value">
-                {{ data.kpis.total_sales | default("AED 0") }}
-            </div>
-        </div>
-
-        <div class="kpi-card">
-            <div class="kpi-label">Monthly Target</div>
-            <div class="kpi-value">
-                {{ data.kpis.monthly_target | default("AED 0") }}
-            </div>
-        </div>
+<div class="kpi-grid">
+    <div class="kpi-card">
+        <div class="kpi-label">Today's Date</div>
+        <div class="kpi-value">{{ data.kpis.today_date }}</div>
     </div>
 
-    <!-- HISTORICAL TREND -->
-    <div class="graph-container">
-        <h3 class="graph-title">Daily Sales Trend (Historical)</h3>
-        <div id="graph-historical-trend"></div>
+    <div class="kpi-card">
+        <div class="kpi-label">Total Sales</div>
+        <div class="kpi-value">{{ data.kpis.total_sales }}</div>
     </div>
 
-    <!-- WEEKDAY AVERAGE -->
-    <div class="graph-container">
-        <h3 class="graph-title">Average Sales by Weekday</h3>
-        <div id="graph-weekday-avg"></div>
+    <div class="kpi-card">
+        <div class="kpi-label">Monthly Target</div>
+        <div class="kpi-value">{{ data.kpis.monthly_target }}</div>
     </div>
-
-    <!-- MONTHLY FORECAST -->
-    <div class="graph-container">
-        <h3 class="graph-title">Current Month Forecast</h3>
-        <div id="graph-monthly-forecast"></div>
-    </div>
-
 </div>
+
+<div class="graph-container">
+    <h3>Historical Daily Sales Trend</h3>
+    <div id="graph-historical"></div>
+</div>
+
+<div class="graph-container">
+    <h3>Average Sales by Weekday</h3>
+    <div id="graph-weekday"></div>
+</div>
+
+{% if data.graphs.monthly_forecast %}
+<div class="graph-container">
+    <h3>Current Month Forecast</h3>
+    <div id="graph-forecast"></div>
+</div>
+{% endif %}
 
 <script>
 const graphs = {{ data.graphs | tojson }};
 
-function safePlot(id, chart) {
-    if (!chart || chart === '{}') return;
-    const parsed = JSON.parse(chart);
-    Plotly.newPlot(id, parsed.data, parsed.layout);
+if (graphs.historical_trend) {
+    const g = JSON.parse(graphs.historical_trend);
+    Plotly.newPlot("graph-historical", g.data, g.layout);
 }
 
-document.addEventListener("DOMContentLoaded", function () {
-    safePlot("graph-historical-trend", graphs.historical_trend);
-    safePlot("graph-weekday-avg", graphs.weekday_avg);
-    safePlot("graph-monthly-forecast", graphs.monthly_forecast);
-});
+if (graphs.weekday_avg) {
+    const g = JSON.parse(graphs.weekday_avg);
+    Plotly.newPlot("graph-weekday", g.data, g.layout);
+}
+
+if (graphs.monthly_forecast) {
+    const g = JSON.parse(graphs.monthly_forecast);
+    Plotly.newPlot("graph-forecast", g.data, g.layout);
+}
 </script>
 
 {% endblock %}
