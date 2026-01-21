@@ -1,119 +1,142 @@
 import pandas as pd
+from datetime import date
 from sqlalchemy import text
 from sales_app.db import engine
 
 
-# ===============================
-# TABLE CREATION
-# ===============================
+# =========================================================
+# CREATE TABLES (SAFE TO RUN MULTIPLE TIMES)
+# =========================================================
 def create_tables_if_not_exist():
     with engine.begin() as conn:
         conn.execute(text("""
-        CREATE TABLE IF NOT EXISTS sales_data (
-            id SERIAL PRIMARY KEY,
-            sale_date DATE NOT NULL,
-            branch TEXT NOT NULL,
-            amount NUMERIC(12,2) NOT NULL,
-            month_label TEXT NOT NULL,
-            data_type TEXT NOT NULL,
-            created_at TIMESTAMP DEFAULT NOW()
-        )
+            CREATE TABLE IF NOT EXISTS sales_data (
+                id SERIAL PRIMARY KEY,
+                sale_date DATE NOT NULL,
+                branch TEXT NOT NULL,
+                amount NUMERIC(12,2) NOT NULL,
+                month_label TEXT NOT NULL,
+                data_type TEXT NOT NULL,
+                created_at TIMESTAMP DEFAULT NOW()
+            );
         """))
 
         conn.execute(text("""
-        CREATE TABLE IF NOT EXISTS uploads_log (
-            id SERIAL PRIMARY KEY,
-            month_label TEXT,
-            data_type TEXT,
-            uploaded_at TIMESTAMP DEFAULT NOW()
-        )
+            CREATE TABLE IF NOT EXISTS targets (
+                id SERIAL PRIMARY KEY,
+                month_label TEXT UNIQUE,
+                target_amount NUMERIC(12,2),
+                created_at TIMESTAMP DEFAULT NOW()
+            );
         """))
 
         conn.execute(text("""
-        CREATE TABLE IF NOT EXISTS targets (
-            id SERIAL PRIMARY KEY,
-            month_label TEXT UNIQUE,
-            target_amount NUMERIC(12,2),
-            created_at TIMESTAMP DEFAULT NOW()
-        )
+            CREATE TABLE IF NOT EXISTS uploads_log (
+                id SERIAL PRIMARY KEY,
+                month_label TEXT,
+                data_type TEXT,
+                uploaded_at TIMESTAMP DEFAULT NOW()
+            );
         """))
 
 
-# ===============================
+# =========================================================
 # INSERT SALES DATA
-# ===============================
+# =========================================================
 def insert_sales_dataframe(df, year, month, month_label, data_type):
-    rows_inserted = 0
+    branch_col = df.columns[0]
+    day_columns = df.columns[1:]
 
-    with engine.begin() as conn:
+    records = []
+
+    for day_index, col in enumerate(day_columns):
+        sale_day = day_index + 1
+        sale_date = date(year, month, sale_day)
+
         for _, row in df.iterrows():
-            conn.execute(
-                text("""
-                INSERT INTO sales_data
-                (sale_date, branch, amount, month_label, data_type)
-                VALUES (:date, :branch, :amount, :month, :type)
-                """),
-                {
-                    "date": row["date"],
-                    "branch": row["branch"],
-                    "amount": float(row["amount"]),
-                    "month": month_label,
-                    "type": data_type,
-                }
-            )
-            rows_inserted += 1
+            records.append({
+                "sale_date": sale_date,
+                "branch": str(row[branch_col]).strip(),
+                "amount": float(row[col]),
+                "month_label": month_label,
+                "data_type": data_type
+            })
 
-    return rows_inserted
+    if not records:
+        return 0
+
+    pd.DataFrame(records).to_sql(
+        "sales_data",
+        engine,
+        if_exists="append",
+        index=False,
+        chunksize=1000
+    )
+
+    return len(records)
 
 
-# ===============================
-# LOAD HISTORICAL DATA (DB ONLY)
-# ===============================
+# =========================================================
+# LOAD HISTORICAL DATA (DB → DATAFRAMES)
+# =========================================================
 def load_historical_dataframes():
     query = """
-    SELECT sale_date, branch, amount, month_label
-    FROM sales_data
-    WHERE data_type = 'historical'
-    ORDER BY sale_date
+        SELECT sale_date, branch, amount, month_label
+        FROM sales_data
+        WHERE data_type = 'historical'
+        ORDER BY sale_date
     """
 
-    df = pd.read_sql(text(query), engine)
+    df = pd.read_sql(query, engine)
+
+    if df.empty:
+        return {}, {}
 
     historical_dfs = {}
     weekday_maps = {}
 
-    if df.empty:
-        return historical_dfs, weekday_maps
-
-    for month_label, mdf in df.groupby("month_label"):
-        mdf = mdf.copy()
-        mdf["sale_date"] = pd.to_datetime(mdf["sale_date"])
-        mdf["weekday"] = mdf["sale_date"].dt.weekday
-        historical_dfs[month_label] = mdf
-        weekday_maps[month_label] = dict(
-            zip(mdf["sale_date"].dt.date, mdf["weekday"])
+    for month_label, month_df in df.groupby("month_label"):
+        pivot = month_df.pivot_table(
+            index="branch",
+            columns=month_df["sale_date"].dt.day,
+            values="amount",
+            aggfunc="sum",
+            fill_value=0
         )
+
+        historical_dfs[f"{month_label}.xlsx"] = pivot
+        weekday_maps[f"{month_label}.xlsx"] = {
+            d: month_df[month_df["sale_date"].dt.day == d]["sale_date"].dt.strftime("%a").iloc[0].upper()
+            for d in pivot.columns
+        }
 
     return historical_dfs, weekday_maps
 
 
-# ===============================
-# LOAD CURRENT MONTH (DB ONLY)
-# ===============================
+# =========================================================
+# LOAD CURRENT MONTH DATA
+# =========================================================
 def load_current_month_dataframe():
     query = """
-    SELECT sale_date, branch, amount, month_label
-    FROM sales_data
-    WHERE data_type = 'current'
-    ORDER BY sale_date
+        SELECT sale_date, branch, amount, month_label
+        FROM sales_data
+        WHERE data_type = 'current'
+        ORDER BY sale_date
     """
 
-    df = pd.read_sql(text(query), engine)
+    df = pd.read_sql(query, engine)
 
     if df.empty:
         return None, None
 
-    df["sale_date"] = pd.to_datetime(df["sale_date"])
-    current_month = df["month_label"].iloc[0]
+    month_label = df["month_label"].iloc[0]
 
-    return current_month, df
+    pivot = df.pivot_table(
+        index="branch",
+        columns=df["sale_date"].dt.day,
+        values="amount",
+        aggfunc="sum",
+        fill_value=0
+    )
+
+    return f"{month_label}.xlsx", pivot
