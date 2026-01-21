@@ -22,12 +22,11 @@ app = Flask(__name__)
 app.secret_key = "sales-dashboard-secret-key-2026"
 app.config["MAX_CONTENT_LENGTH"] = 16 * 1024 * 1024
 
-# Ensure DB schema exists
+# Ensure DB schema exists (Render-safe)
 try:
     create_tables_if_not_exist()
 except Exception as e:
     print("DB init skipped:", e)
-
 
 ADMIN_USERNAME = "Admin"
 ADMIN_PASSWORD = "Champ@123"
@@ -41,7 +40,7 @@ def get_current_month_name():
     return datetime.now().strftime("%B %Y")
 
 # =========================================================
-# AUTH
+# AUTH ROUTES (MUST EXIST — TEMPLATE USES THEM)
 # =========================================================
 @app.route("/login", methods=["GET", "POST"])
 def login():
@@ -63,7 +62,7 @@ def logout():
     return redirect(url_for("dashboard"))
 
 # =========================================================
-# UPLOAD
+# UPLOAD ROUTE (TEMPLATE EXPECTS THIS)
 # =========================================================
 @app.route("/upload", methods=["GET", "POST"])
 def upload():
@@ -75,7 +74,7 @@ def upload():
 
     if request.method == "POST":
 
-        # -------- HISTORICAL --------
+        # ---------- HISTORICAL ----------
         if "historical_file" in request.files:
             file = request.files["historical_file"]
             if file and file.filename:
@@ -100,7 +99,7 @@ def upload():
                     message = f"Historical data uploaded ({rows} rows)"
                     message_type = "success"
 
-        # -------- CURRENT MONTH --------
+        # ---------- CURRENT MONTH ----------
         elif "current_month_file" in request.files:
             file = request.files["current_month_file"]
             if file and file.filename:
@@ -125,7 +124,7 @@ def upload():
                     message = f"Current month uploaded ({rows} rows)"
                     message_type = "success"
 
-        # -------- TARGET --------
+        # ---------- TARGET ----------
         elif "current_month" in request.form and "target_value" in request.form:
             try:
                 target_value = float(request.form["target_value"])
@@ -138,25 +137,25 @@ def upload():
                 message = "Target must be a number"
                 message_type = "error"
 
-    return render_template("upload.html", message=message, message_type=message_type)
+    return render_template(
+        "upload.html",
+        message=message,
+        message_type=message_type,
+    )
 
 # =========================================================
-# DASHBOARD (DB-ONLY, ALWAYS LIVE)
+# DASHBOARD DATA (SAFE + TEMPLATE-COMPATIBLE)
 # =========================================================
 def get_dashboard_data():
-    # 1️⃣ Load fresh data every request
     historical_dfs, weekday_maps = load_historical_dataframes()
     current_filename, current_df = load_current_month_dataframe()
 
-    # 2️⃣ Weekday averages
     weekday_averages = Forecaster.calculate_weekday_averages(
         historical_dfs, weekday_maps
     )
 
-    # 3️⃣ Target
     target = fm.get_target_for_month(current_filename) if current_filename else 0
 
-    # 4️⃣ Forecast (SAFE DEFAULT)
     if current_df is not None:
         forecast_data = Forecaster.forecast_current_month(
             current_df, weekday_averages
@@ -172,21 +171,17 @@ def get_dashboard_data():
             "today_projected_sale": 0,
         }
 
-    # 5️⃣ KPIs
     today_date = datetime.now().strftime("%d %b")
     total_sales = sum(forecast_data["daily_actual"])
 
-    # 6️⃣ Graphs (SAFE)
     graphs = {}
     try:
         graphs["historical_trend"] = Visualizer.create_historical_daily_trend(
             historical_dfs
         )
-
         graphs["weekday_avg"] = Visualizer.create_weekday_average_chart(
             weekday_averages
         )
-
         if forecast_data["month_days"] > 0:
             graphs["monthly_forecast"] = Visualizer.create_monthly_forecast(
                 forecast_data["daily_actual"],
@@ -196,20 +191,24 @@ def get_dashboard_data():
                 get_current_month_name(),
             )
     except Exception as e:
-        print("Error creating forecast chart:", e)
+        print("Graph error:", e)
 
     return {
         "kpis": {
             "today_date": today_date,
             "total_sales": f"AED {total_sales:,.0f}",
             "monthly_target": f"AED {target:,.0f}",
+            "today_projected_sale": "AED 0",
+            "monthly_projection": "AED 0",
+            "shortfall": "AED 0",
+            "shortfall_type": "neutral",
         },
         "graphs": graphs,
         "current_month": current_filename,
     }
 
 # =========================================================
-# ROUTES
+# ROUTES (ALL TEMPLATE REFERENCES MUST EXIST)
 # =========================================================
 @app.route("/")
 def index():
@@ -235,7 +234,7 @@ def server_error(e):
     return render_template("error.html", error="Server error"), 500
 
 # =========================================================
-# LOCAL RUN ONLY (GUNICORN IGNORES THIS)
+# LOCAL RUN ONLY
 # =========================================================
 if __name__ == "__main__":
     app.run(debug=True, host="0.0.0.0", port=5000)
