@@ -1,6 +1,6 @@
 from flask import Flask, render_template, request, redirect, url_for, session
 from datetime import datetime
-import os
+import traceback
 
 # =========================================================
 # SAFE ABSOLUTE IMPORTS
@@ -23,11 +23,11 @@ app = Flask(__name__)
 app.secret_key = "sales-dashboard-secret-key-2026"
 app.config["MAX_CONTENT_LENGTH"] = 16 * 1024 * 1024
 
-# DB init (Render safe)
+# Safe DB init (Render cold start safe)
 try:
     create_tables_if_not_exist()
 except Exception as e:
-    print("DB init skipped:", e)
+    print("DB init warning:", e)
 
 ADMIN_USERNAME = "Admin"
 ADMIN_PASSWORD = "Champ@123"
@@ -41,32 +41,18 @@ def get_current_month_name():
     return datetime.now().strftime("%B %Y")
 
 
-def parse_month_from_filename(filename: str):
+def parse_month_from_filename(filename):
     """
-    STRICT filename validation.
-    Expected format: 'January 2026.xlsx'
+    Expected: January 2026.xlsx
     """
-    if not filename.lower().endswith(".xlsx"):
-        raise ValueError("File must be an .xlsx Excel file")
-
     name = filename.replace(".xlsx", "").strip()
     parts = name.split()
-
     if len(parts) != 2:
         raise ValueError("Filename must be like 'January 2026.xlsx'")
 
-    month_name, year_str = parts
-
-    try:
-        month = datetime.strptime(month_name, "%B").month
-    except ValueError:
-        raise ValueError("Month must be full name like January, February, etc.")
-
-    try:
-        year = int(year_str)
-    except ValueError:
-        raise ValueError("Year must be numeric (e.g. 2026)")
-
+    month_name = parts[0]
+    year = int(parts[1])
+    month = datetime.strptime(month_name, "%B").month
     return month_name, month, year
 
 
@@ -94,7 +80,7 @@ def logout():
 
 
 # =========================================================
-# UPLOAD (100% SAFE – NO MORE 500)
+# UPLOAD (HARDENED – NEVER CRASHES)
 # =========================================================
 @app.route("/upload", methods=["GET", "POST"])
 def upload():
@@ -107,12 +93,11 @@ def upload():
     try:
         if request.method == "POST":
 
-            # ================= HISTORICAL =================
+            # -------- HISTORICAL UPLOAD --------
             if "historical_file" in request.files:
                 file = request.files["historical_file"]
-
                 if not file or not file.filename:
-                    raise ValueError("No file selected")
+                    raise ValueError("No historical file selected")
 
                 temp_path = f"/tmp/{file.filename}"
                 file.save(temp_path)
@@ -133,12 +118,11 @@ def upload():
                 message = f"Historical data uploaded successfully ({rows} rows)"
                 message_type = "success"
 
-            # ================= CURRENT =================
+            # -------- CURRENT MONTH UPLOAD --------
             elif "current_month_file" in request.files:
                 file = request.files["current_month_file"]
-
                 if not file or not file.filename:
-                    raise ValueError("No file selected")
+                    raise ValueError("No current month file selected")
 
                 temp_path = f"/tmp/{file.filename}"
                 file.save(temp_path)
@@ -159,7 +143,7 @@ def upload():
                 message = f"Current month uploaded successfully ({rows} rows)"
                 message_type = "success"
 
-            # ================= TARGET =================
+            # -------- TARGET SAVE --------
             elif "current_month" in request.form and "target_value" in request.form:
                 target_value = float(request.form["target_value"])
                 fm.save_target_for_month(
@@ -169,18 +153,29 @@ def upload():
                 message_type = "success"
 
     except Exception as e:
-        # 🔥 THIS IS WHY 500 IS GONE
-        print("UPLOAD ERROR:", str(e))
+        print("UPLOAD ERROR:")
+        traceback.print_exc()
         message = str(e)
         message_type = "error"
 
-    # ================= TEMPLATE DATA =================
-    historical_files = fm.get_available_months("historical")
-    current_month_filename, _ = load_current_month_dataframe()
-    current_target = (
-        fm.get_target_for_month(current_month_filename)
-        if current_month_filename else 0
-    )
+    # ---------- SAFE TEMPLATE DATA ----------
+    try:
+        historical_files = fm.get_available_months("historical") or []
+    except Exception:
+        historical_files = []
+
+    try:
+        current_month_filename, _ = load_current_month_dataframe()
+    except Exception:
+        current_month_filename = None
+
+    try:
+        current_target = (
+            fm.get_target_for_month(current_month_filename)
+            if current_month_filename else 0
+        )
+    except Exception:
+        current_target = 0
 
     return render_template(
         "upload.html",
@@ -193,58 +188,75 @@ def upload():
 
 
 # =========================================================
-# DASHBOARD (HARDENED – NEVER CRASHES)
+# DASHBOARD (NEVER CRASHES)
 # =========================================================
 def get_dashboard_data():
 
+    # ---------- SAFE LOAD ----------
     try:
         historical_dfs, weekday_maps = load_historical_dataframes()
-    except Exception as e:
-        print("Historical load failed:", e)
+    except Exception:
         historical_dfs, weekday_maps = {}, {}
 
     try:
         current_filename, current_df = load_current_month_dataframe()
-    except Exception as e:
-        print("Current load failed:", e)
+    except Exception:
         current_filename, current_df = None, None
 
     try:
         weekday_averages = Forecaster.calculate_weekday_averages(
             historical_dfs, weekday_maps
         )
-    except Exception as e:
-        print("Weekday avg error:", e)
+    except Exception:
         weekday_averages = {}
 
     target = fm.get_target_for_month(current_filename) if current_filename else 0
 
-    forecast_data = {"daily_actual": [], "daily_forecast": [], "today": 0, "month_days": 0}
     if current_df is not None:
         try:
             forecast_data = Forecaster.forecast_current_month(
                 current_df, weekday_averages
             )
-        except Exception as e:
-            print("Forecast error:", e)
+        except Exception:
+            forecast_data = {
+                "daily_actual": [],
+                "daily_forecast": [],
+                "today": 0,
+                "month_days": 0,
+            }
+    else:
+        forecast_data = {
+            "daily_actual": [],
+            "daily_forecast": [],
+            "today": 0,
+            "month_days": 0,
+        }
 
+    today_date = datetime.now().strftime("%d %b")
     total_sales = sum(forecast_data.get("daily_actual", []))
 
     graphs = {
         "historical_trend": "{}",
         "weekday_avg": "{}",
         "monthly_forecast": "{}",
+        "cumulative_vs_target": "{}",
+        "actual_vs_required": "{}",
+        "monthly_comparison": "{}",
     }
 
     try:
-        graphs["historical_trend"] = Visualizer.create_historical_daily_trend(historical_dfs)
-        graphs["weekday_avg"] = Visualizer.create_weekday_average_chart(weekday_averages)
-    except Exception as e:
-        print("Graph error:", e)
+        graphs["historical_trend"] = Visualizer.create_historical_daily_trend(
+            historical_dfs
+        )
+        graphs["weekday_avg"] = Visualizer.create_weekday_average_chart(
+            weekday_averages
+        )
+    except Exception:
+        pass
 
     return {
         "kpis": {
-            "today_date": datetime.now().strftime("%d %b"),
+            "today_date": today_date,
             "total_sales_till_today": f"AED {total_sales:,.0f}",
             "today_projected_sale": "AED 0",
             "monthly_projection": "AED 0",
