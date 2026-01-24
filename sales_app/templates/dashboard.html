@@ -2,10 +2,6 @@
 
 {% block title %}Dashboard - Sales Forecasting{% endblock %}
 
-{% block extra_css %}
-<script src="https://cdn.plot.ly/plotly-latest.min.js"></script>
-{% endblock %}
-
 {% block content %}
 
 <div class="kpi-grid">
@@ -16,7 +12,7 @@
 
     <div class="kpi-card">
         <div class="kpi-label">Total Sales</div>
-        <div class="kpi-value">{{ data.kpis.total_sales }}</div>
+        <div class="kpi-value">{{ data.kpis.total_sales_till_today }}</div>
     </div>
 
     <div class="kpi-card">
@@ -42,23 +38,25 @@
 </div>
 {% endif %}
 
+{% block extra_js %}
 <script>
-const graphs = {{ data.graphs | tojson }};
+    const graphs = {{ data.graphs | tojson }};
 
-if (graphs.historical_trend) {
-    const g = JSON.parse(graphs.historical_trend);
-    Plotly.newPlot("graph-historical", g.data, g.layout);
-}
+    if (graphs.historical_trend && graphs.historical_trend !== "{}") {
+        const g = JSON.parse(graphs.historical_trend);
+        Plotly.newPlot("graph-historical", g.data, g.layout);
+    }
 
-if (graphs.weekday_avg) {
-    const g = JSON.parse(graphs.weekday_avg);
-    Plotly.newPlot("graph-weekday", g.data, g.layout);
-}
+    if (graphs.weekday_avg && graphs.weekday_avg !== "{}") {
+        const g = JSON.parse(graphs.weekday_avg);
+        Plotly.newPlot("graph-weekday", g.data, g.layout);
+    }
 
-if (graphs.monthly_forecast) {
-    const g = JSON.parse(graphs.monthly_forecast);
-    Plotly.newPlot("graph-forecast", g.data, g.layout);
-}
+    if (graphs.monthly_forecast && graphs.monthly_forecast !== "{}") {
+        const g = JSON.parse(graphs.monthly_forecast);
+        Plotly.newPlot("graph-forecast", g.data, g.layout);
+    }
 </script>
+{% endblock %}
 
 {% endblock %}
