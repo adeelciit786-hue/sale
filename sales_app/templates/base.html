@@ -8,13 +8,6 @@
     <!-- Main stylesheet -->
     <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
 
-    <!-- Plotly JS (REQUIRED for all charts) -->
-    <script
-        src="https://cdn.plot.ly/plotly-2.30.0.min.js"
-        integrity="sha384-vx0qZ4XxHBO5YJg0Y6Y0QkY2Zy9p1P9Z5F7q7b4s8kKxN7Vx9C8m6n3X9rF0n"
-        crossorigin="anonymous">
-    </script>
-
     {% block extra_css %}{% endblock %}
 </head>
 <body>
@@ -65,6 +58,9 @@
             Built for Confident Decision-Making and Operational Excellence.
         </p>
     </footer>
+
+    <!-- Plotly JS (loaded AFTER DOM, CSP-safe) -->
+    <script src="https://cdn.plot.ly/plotly-2.30.0.min.js"></script>
 
     {% block extra_js %}{% endblock %}
 </body>
