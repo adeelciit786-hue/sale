@@ -14,20 +14,40 @@ engine = create_engine(
 )
 
 # =========================================================
-# CREATE TABLES
+# CREATE TABLES (SAFE & BACKWARD COMPATIBLE)
 # =========================================================
 def create_tables_if_not_exist():
     with engine.begin() as conn:
+
+        # Ensure sales_data table with branch
         conn.execute(text("""
             CREATE TABLE IF NOT EXISTS sales_data (
                 id SERIAL PRIMARY KEY,
                 sale_date DATE NOT NULL,
+                branch TEXT NOT NULL,
                 amount NUMERIC NOT NULL,
                 month_label TEXT NOT NULL,
                 data_type TEXT NOT NULL
             );
         """))
 
+        # Ensure branch column exists (for older DBs)
+        conn.execute(text("""
+            DO $$
+            BEGIN
+                IF NOT EXISTS (
+                    SELECT 1
+                    FROM information_schema.columns
+                    WHERE table_name = 'sales_data'
+                    AND column_name = 'branch'
+                ) THEN
+                    ALTER TABLE sales_data
+                    ADD COLUMN branch TEXT NOT NULL DEFAULT 'ALL';
+                END IF;
+            END$$;
+        """))
+
+        # Monthly targets
         conn.execute(text("""
             CREATE TABLE IF NOT EXISTS monthly_targets (
                 month_label TEXT PRIMARY KEY,
@@ -36,13 +56,11 @@ def create_tables_if_not_exist():
         """))
 
 # =========================================================
-# INSERT DATAFRAME
+# INSERT DATAFRAME (FIXED & STABLE)
 # =========================================================
-def insert_sales_dataframe(df, year, month, month_label, data_type):
+def insert_sales_dataframe(df, year, month, month_label, data_type, branch="ALL"):
     """
-    df:
-      col0 = branch
-      col1..n = daily sales
+    Aggregates daily totals and inserts them with a fixed branch.
     """
     rows = []
 
@@ -59,6 +77,7 @@ def insert_sales_dataframe(df, year, month, month_label, data_type):
 
         rows.append({
             "sale_date": sale_date.date(),
+            "branch": branch,            # ✅ FIX
             "amount": float(total_amount),
             "month_label": month_label,
             "data_type": data_type,
@@ -93,7 +112,6 @@ def load_historical_dataframes():
     if df.empty:
         return {}, {}
 
-    # 🔒 CRITICAL FIX: force datetime
     df["sale_date"] = pd.to_datetime(df["sale_date"], errors="coerce")
     df = df.dropna(subset=["sale_date"])
 
@@ -101,12 +119,8 @@ def load_historical_dataframes():
     weekday_maps = {}
 
     for month, month_df in df.groupby("month_label"):
-
-        # Ensure datetime
         month_df = month_df.copy()
-        month_df["sale_date"] = pd.to_datetime(
-            month_df["sale_date"], errors="coerce"
-        )
+        month_df["sale_date"] = pd.to_datetime(month_df["sale_date"], errors="coerce")
         month_df = month_df.dropna(subset=["sale_date"])
 
         if month_df.empty:
@@ -147,7 +161,6 @@ def load_current_month_dataframe():
     if df.empty:
         return None, None
 
-    # 🔒 CRITICAL FIX
     df["sale_date"] = pd.to_datetime(df["sale_date"], errors="coerce")
     df = df.dropna(subset=["sale_date"])
 
