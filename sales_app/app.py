@@ -23,24 +23,25 @@ app = Flask(__name__)
 app.secret_key = "sales-dashboard-secret-key-2026"
 app.config["MAX_CONTENT_LENGTH"] = 16 * 1024 * 1024
 
-# Safe DB init (Render cold start safe)
+ADMIN_USERNAME = "Admin"
+ADMIN_PASSWORD = "Champ@123"
+
+# 🔒 Fixed logical branch (aggregated data)
+BRANCH_NAME = "ALL"
+
+fm = FileManager()
+
+# =========================================================
+# SAFE DB INIT (RENDER COLD START SAFE)
+# =========================================================
 try:
     create_tables_if_not_exist()
 except Exception as e:
     print("DB init warning:", e)
 
-ADMIN_USERNAME = "Admin"
-ADMIN_PASSWORD = "Champ@123"
-
-fm = FileManager()
-
 # =========================================================
 # HELPERS
 # =========================================================
-def get_current_month_name():
-    return datetime.now().strftime("%B %Y")
-
-
 def parse_month_from_filename(filename):
     """
     Expected: January 2026.xlsx
@@ -80,7 +81,7 @@ def logout():
 
 
 # =========================================================
-# UPLOAD (HARDENED – NEVER CRASHES)
+# UPLOAD (STABLE & HARDENED)
 # =========================================================
 @app.route("/upload", methods=["GET", "POST"])
 def upload():
@@ -93,32 +94,45 @@ def upload():
     try:
         if request.method == "POST":
 
-            # -------- HISTORICAL UPLOAD --------
-            if "historical_file" in request.files:
-                file = request.files["historical_file"]
-                if not file or not file.filename:
-                    raise ValueError("No historical file selected")
+            # ===============================
+            # HISTORICAL UPLOAD
+            # ===============================
+            if "historical_files" in request.files:
+                files = request.files.getlist("historical_files")
 
-                temp_path = f"/tmp/{file.filename}"
-                file.save(temp_path)
+                if not files or not files[0].filename:
+                    raise ValueError("No historical files selected")
 
-                df, error, _ = ExcelLoader.load_file(temp_path)
-                if error:
-                    raise ValueError(error)
+                for file in files:
+                    temp_path = f"/tmp/{file.filename}"
+                    file.save(temp_path)
 
-                month_name, month, year = parse_month_from_filename(file.filename)
-                month_label = f"{month_name} {year}"
+                    df, error, _ = ExcelLoader.load_file(temp_path)
+                    if error:
+                        raise ValueError(error)
 
-                fm.clear_month_data(month_label, "historical")
-                rows = insert_sales_dataframe(
-                    df, year, month, month_label, "historical"
-                )
-                fm.log_upload(month_label, "historical")
+                    month_name, month, year = parse_month_from_filename(file.filename)
+                    month_label = f"{month_name} {year}"
 
-                message = f"Historical data uploaded successfully ({rows} rows)"
+                    fm.clear_month_data(month_label, "historical")
+
+                    rows = insert_sales_dataframe(
+                        df=df,
+                        year=year,
+                        month=month,
+                        month_label=month_label,
+                        data_type="historical",
+                        branch=BRANCH_NAME,  # ✅ FIX
+                    )
+
+                    fm.log_upload(month_label, "historical")
+
+                message = "Historical data uploaded successfully"
                 message_type = "success"
 
-            # -------- CURRENT MONTH UPLOAD --------
+            # ===============================
+            # CURRENT MONTH UPLOAD
+            # ===============================
             elif "current_month_file" in request.files:
                 file = request.files["current_month_file"]
                 if not file or not file.filename:
@@ -135,20 +149,29 @@ def upload():
                 month_label = f"{month_name} {year}"
 
                 fm.clear_month_data(month_label, "current")
+
                 rows = insert_sales_dataframe(
-                    df, year, month, month_label, "current"
+                    df=df,
+                    year=year,
+                    month=month,
+                    month_label=month_label,
+                    data_type="current",
+                    branch=BRANCH_NAME,  # ✅ FIX
                 )
+
                 fm.log_upload(month_label, "current")
 
                 message = f"Current month uploaded successfully ({rows} rows)"
                 message_type = "success"
 
-            # -------- TARGET SAVE --------
-            elif "current_month" in request.form and "target_value" in request.form:
-                target_value = float(request.form["target_value"])
-                fm.save_target_for_month(
-                    request.form["current_month"], target_value
-                )
+            # ===============================
+            # TARGET SAVE
+            # ===============================
+            elif "monthly_target" in request.form:
+                target_value = float(request.form["monthly_target"])
+                current_month = load_current_month_dataframe()[0]
+                fm.save_target_for_month(current_month, target_value)
+
                 message = "Target saved successfully"
                 message_type = "success"
 
@@ -156,13 +179,12 @@ def upload():
         print("UPLOAD ERROR:")
         traceback.print_exc()
         message = str(e)
-        message_type = "error"
+        message_type = "danger"
 
-    # ---------- SAFE TEMPLATE DATA ----------
-    try:
-        historical_files = fm.get_available_months("historical") or []
-    except Exception:
-        historical_files = []
+    # ===============================
+    # SAFE TEMPLATE CONTEXT
+    # ===============================
+    historical_files = fm.get_available_months("historical") or []
 
     try:
         current_month_filename, _ = load_current_month_dataframe()
@@ -188,11 +210,9 @@ def upload():
 
 
 # =========================================================
-# DASHBOARD (NEVER CRASHES)
+# DASHBOARD (UNCHANGED & SAFE)
 # =========================================================
 def get_dashboard_data():
-
-    # ---------- SAFE LOAD ----------
     try:
         historical_dfs, weekday_maps = load_historical_dataframes()
     except Exception:
@@ -212,25 +232,20 @@ def get_dashboard_data():
 
     target = fm.get_target_for_month(current_filename) if current_filename else 0
 
+    forecast_data = {
+        "daily_actual": [],
+        "daily_forecast": [],
+        "today": 0,
+        "month_days": 0,
+    }
+
     if current_df is not None:
         try:
             forecast_data = Forecaster.forecast_current_month(
                 current_df, weekday_averages
             )
         except Exception:
-            forecast_data = {
-                "daily_actual": [],
-                "daily_forecast": [],
-                "today": 0,
-                "month_days": 0,
-            }
-    else:
-        forecast_data = {
-            "daily_actual": [],
-            "daily_forecast": [],
-            "today": 0,
-            "month_days": 0,
-        }
+            pass
 
     today_date = datetime.now().strftime("%d %b")
     total_sales = sum(forecast_data.get("daily_actual", []))
